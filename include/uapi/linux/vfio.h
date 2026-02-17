@@ -1321,6 +1321,36 @@ struct vfio_precopy_info {
 
 #define VFIO_MIG_GET_PRECOPY_INFO _IO(VFIO_TYPE, VFIO_BASE + 21)
 
+/**
+ * VFIO_DEVICE_PCI_DMABUF_REVOKE - _IO(VFIO_TYPE, VFIO_BASE + 22)
+ *
+ * This ioctl is used on the device FD, and requests that access to
+ * the buffer corresponding to the DMABUF FD parameter is immediately
+ * and permanently revoked.  On successful return, the buffer is not
+ * accessible through any mmap() or dma-buf import.  The request fails
+ * if the buffer is pinned; otherwise, the exporter marks the buffer
+ * as inaccessible and uses the move_notify callback to inform
+ * importers of the change.  The buffer is permanently disabled, and
+ * VFIO refuses all map, mmap, attach, etc. requests.
+ *
+ * Returns:
+ *
+ * Return: 0 on success, -1 and errno set on failure:
+ *
+ *  ENODEV if the associated dmabuf FD no longer exists/is closed,
+ *         or is not a DMABUF created for this device.
+ *  EINVAL if the dmabuf_fd parameter isn't a DMABUF.
+ *  EBADF if the dmabuf_fd parameter isn't a valid file number.
+ *  EBADFD if the buffer has already been revoked.
+ *
+ */
+struct vfio_pci_dmabuf_revoke {
+	__u32 argsz;
+	__u32 dmabuf_fd;
+};
+
+#define VFIO_DEVICE_PCI_DMABUF_REVOKE _IO(VFIO_TYPE, VFIO_BASE + 22)
+
 /*
  * Upon VFIO_DEVICE_FEATURE_SET, allow the device to be moved into a low power
  * state with the platform-based power management.  Device use of lower power

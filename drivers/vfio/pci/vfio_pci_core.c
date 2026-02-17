@@ -1504,6 +1504,21 @@ static int vfio_pci_ioctl_ioeventfd(struct vfio_pci_core_device *vdev,
 				  ioeventfd.fd);
 }
 
+static int vfio_pci_ioctl_dmabuf_revoke(struct vfio_pci_core_device *vdev,
+					struct vfio_pci_dmabuf_revoke __user *arg)
+{
+	unsigned long minsz = offsetofend(struct vfio_pci_dmabuf_revoke, dmabuf_fd);
+	struct vfio_pci_dmabuf_revoke revoke;
+
+	if (copy_from_user(&revoke, arg, minsz))
+		return -EFAULT;
+
+	if (revoke.argsz < minsz)
+		return -EINVAL;
+
+	return vfio_pci_dma_buf_revoke(vdev, revoke.dmabuf_fd);
+}
+
 long vfio_pci_core_ioctl(struct vfio_device *core_vdev, unsigned int cmd,
 			 unsigned long arg)
 {
@@ -1526,6 +1541,8 @@ long vfio_pci_core_ioctl(struct vfio_device *core_vdev, unsigned int cmd,
 		return vfio_pci_ioctl_reset(vdev, uarg);
 	case VFIO_DEVICE_SET_IRQS:
 		return vfio_pci_ioctl_set_irqs(vdev, uarg);
+	case VFIO_DEVICE_PCI_DMABUF_REVOKE:
+		return vfio_pci_ioctl_dmabuf_revoke(vdev, uarg);
 	default:
 		return -ENOTTY;
 	}
@@ -1795,7 +1812,7 @@ static vm_fault_t vfio_pci_mmap_huge_fault(struct vm_fault *vmf,
 	dma_resv_lock(priv->dmabuf->resv, NULL);
 	vdev = READ_ONCE(priv->vdev);
 
-	if (READ_ONCE(priv->revoked) || !vdev) {
+	if (READ_ONCE(priv->status) != VFIO_PCI_DMABUF_OK || !vdev) {
 		pr_debug_ratelimited("%s VA 0x%lx, pgoff 0x%lx: DMABUF revoked/cleaned up\n",
 				     __func__, vmf->address, vma->vm_pgoff);
 		dma_resv_unlock(priv->dmabuf->resv);
@@ -1817,7 +1834,7 @@ static vm_fault_t vfio_pci_mmap_huge_fault(struct vm_fault *vmf,
 	dma_resv_unlock(priv->dmabuf->resv);
 
 	scoped_guard(rwsem_read, &vdev->memory_lock) {
-		if (!READ_ONCE(priv->revoked)) {
+		if (READ_ONCE(priv->status) == VFIO_PCI_DMABUF_OK) {
 			int pres = vfio_pci_dma_buf_find_pfn(priv, vma,
 							     vmf->address,
 							     order, &pfn);
