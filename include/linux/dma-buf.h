@@ -277,6 +277,28 @@ struct dma_buf_ops {
 
 	int (*vmap)(struct dma_buf *dmabuf, struct iosys_map *map);
 	void (*vunmap)(struct dma_buf *dmabuf, struct iosys_map *map);
+
+	/**
+	 * @revoke:
+	 *
+	 * This callback is invoked from a userspace
+	 * DMA_BUF_IOCTL_REVOKE operation, and requests that access to
+	 * the buffer is immediately and permanently revoked.  On
+	 * successful return, the buffer is not accessible through any
+	 * mmap() or dma-buf import.  The request fails if the buffer
+	 * is pinned; otherwise, the exporter marks the buffer as
+	 * inaccessible and uses the move_notify callback to inform
+	 * importers of the change.  The buffer is permanently
+	 * disabled, and the exporter must refuse all map, mmap,
+	 * attach, etc. requests.
+	 *
+	 * Returns:
+	 *
+	 * 0 on success, or a negative error code on failure:
+	 * -ENODEV if the associated device no longer exists/is closed.
+	 * -EBADFD if the buffer has already been revoked.
+	 */
+	int (*revoke)(struct dma_buf *dmabuf);
 };
 
 /**

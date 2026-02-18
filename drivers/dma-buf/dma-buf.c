@@ -561,6 +561,11 @@ static long dma_buf_ioctl(struct file *file,
 	case DMA_BUF_IOCTL_IMPORT_SYNC_FILE:
 		return dma_buf_import_sync_file(dmabuf, (const void __user *)arg);
 #endif
+	case DMA_BUF_IOCTL_REVOKE:
+		if (dmabuf->ops->revoke)
+			return dmabuf->ops->revoke(dmabuf);
+		else
+			return -EINVAL;
 
 	default:
 		return -ENOTTY;
