@@ -356,6 +356,8 @@ static int nvgrace_gpu_mmap(struct vfio_device *core_vdev,
 	struct nvgrace_gpu_pci_core_device *nvdev =
 		container_of(core_vdev, struct nvgrace_gpu_pci_core_device,
 			     core_device.vdev);
+	struct vfio_pci_core_device *vdev =
+		container_of(core_vdev, struct vfio_pci_core_device, vdev);
 	struct mem_region *memregion;
 	u64 req_len, pgoff, end;
 	unsigned int index;
@@ -365,6 +367,9 @@ static int nvgrace_gpu_mmap(struct vfio_device *core_vdev,
 	memregion = nvgrace_gpu_memregion(index, nvdev);
 	if (!memregion)
 		return vfio_pci_core_mmap(core_vdev, vma);
+
+	/* Non-DMABUF BAR mappings need an extra zap */
+	vdev->bar_needs_zap = true;
 
 	/*
 	 * Request to mmap the BAR. Map to the CPU accessible memory on the
