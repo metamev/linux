@@ -319,7 +319,7 @@ static int vfio_pci_runtime_pm_entry(struct vfio_pci_core_device *vdev,
 	 * The vdev power related flags are protected with 'memory_lock'
 	 * semaphore.
 	 */
-	vfio_pci_zap_and_down_write_memory_lock(vdev);
+	down_write(&vdev->memory_lock);
 	vfio_pci_dma_buf_move(vdev, true);
 
 	if (vdev->pm_runtime_engaged) {
@@ -1229,7 +1229,7 @@ static int vfio_pci_ioctl_reset(struct vfio_pci_core_device *vdev,
 	if (!vdev->reset_works)
 		return -EINVAL;
 
-	vfio_pci_zap_and_down_write_memory_lock(vdev);
+	down_write(&vdev->memory_lock);
 
 	/*
 	 * This function can be invoked while the power state is non-D0. If
@@ -1612,22 +1612,6 @@ ssize_t vfio_pci_core_write(struct vfio_device *core_vdev, const char __user *bu
 	return vfio_pci_rw(vdev, (char __user *)buf, count, ppos, true);
 }
 EXPORT_SYMBOL_GPL(vfio_pci_core_write);
-
-static void vfio_pci_zap_bars(struct vfio_pci_core_device *vdev)
-{
-	struct vfio_device *core_vdev = &vdev->vdev;
-	loff_t start = VFIO_PCI_INDEX_TO_OFFSET(VFIO_PCI_BAR0_REGION_INDEX);
-	loff_t end = VFIO_PCI_INDEX_TO_OFFSET(VFIO_PCI_ROM_REGION_INDEX);
-	loff_t len = end - start;
-
-	unmap_mapping_range(core_vdev->inode->i_mapping, start, len, true);
-}
-
-void vfio_pci_zap_and_down_write_memory_lock(struct vfio_pci_core_device *vdev)
-{
-	down_write(&vdev->memory_lock);
-	vfio_pci_zap_bars(vdev);
-}
 
 u16 vfio_pci_memory_lock_and_enable(struct vfio_pci_core_device *vdev)
 {
@@ -2487,10 +2471,11 @@ static int vfio_pci_dev_set_hot_reset(struct vfio_device_set *dev_set,
 		}
 
 		/*
-		 * Take the memory write lock for each device and zap BAR
-		 * mappings to prevent the user accessing the device while in
-		 * reset.  Locking multiple devices is prone to deadlock,
-		 * runaway and unwind if we hit contention.
+		 * Take the memory write lock for each device and
+		 * revoke all DMABUFs, which will prevent any access
+		 * to the device while in reset.  Locking multiple
+		 * devices is prone to deadlock, runaway and unwind if
+		 * we hit contention.
 		 */
 		if (!down_write_trylock(&vdev->memory_lock)) {
 			ret = -EBUSY;
@@ -2498,7 +2483,6 @@ static int vfio_pci_dev_set_hot_reset(struct vfio_device_set *dev_set,
 		}
 
 		vfio_pci_dma_buf_move(vdev, true);
-		vfio_pci_zap_bars(vdev);
 	}
 
 	if (!list_entry_is_head(vdev,
