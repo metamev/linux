@@ -28,6 +28,14 @@ struct pci_p2pdma {
 	struct p2pdma_provider mem[PCI_STD_NUM_BARS];
 };
 
+/*
+ * CONFIG_PCI_P2PDMA_CORE provides just a bare-bones init and
+ * pcim_p2pdma_provider() interface (used by things like VFIO even if
+ * full P2PDMA isn't present).  The full P2PDMA feature is under the
+ * CONFIG_PCI_P2PDMA option.
+ */
+#ifdef CONFIG_PCI_P2PDMA
+
 struct pci_p2pdma_pagemap {
 	struct dev_pagemap pgmap;
 	struct p2pdma_provider *mem;
@@ -226,6 +234,8 @@ static const struct dev_pagemap_ops p2pdma_pgmap_ops = {
 	.folio_free = p2pdma_folio_free,
 };
 
+#endif /* CONFIG_PCI_P2PDMA */
+
 static void pci_p2pdma_release(void *data)
 {
 	struct pci_dev *pdev = data;
@@ -241,11 +251,13 @@ static void pci_p2pdma_release(void *data)
 		synchronize_rcu();
 	xa_destroy(&p2pdma->map_types);
 
+#ifdef CONFIG_PCI_P2PDMA
 	if (!p2pdma->pool)
 		return;
 
 	gen_pool_destroy(p2pdma->pool);
 	sysfs_remove_group(&pdev->dev.kobj, &p2pmem_group);
+#endif
 }
 
 /**
@@ -329,6 +341,8 @@ struct p2pdma_provider *pcim_p2pdma_provider(struct pci_dev *pdev, int bar)
 	return &p2p->mem[bar];
 }
 EXPORT_SYMBOL_GPL(pcim_p2pdma_provider);
+
+#ifdef CONFIG_PCI_P2PDMA
 
 static int pci_p2pdma_setup_pool(struct pci_dev *pdev)
 {
@@ -1207,3 +1221,5 @@ ssize_t pci_p2pdma_enable_show(char *page, struct pci_dev *p2p_dev,
 	return sprintf(page, "%s\n", pci_name(p2p_dev));
 }
 EXPORT_SYMBOL_GPL(pci_p2pdma_enable_show);
+
+#endif
