@@ -211,6 +211,7 @@ config PCI_P2PDMA
 	# requires 64bit
 	#
 	depends on 64BIT
+	select PCI_P2PDMA_CORE
 	select GENERIC_ALLOCATOR
 	select NEED_SG_DMA_FLAGS
 	help
@@ -225,6 +226,10 @@ config PCI_P2PDMA
 	  port.
 
 	  If unsure, say N.
+
+config PCI_P2PDMA_CORE
+	default n
+	bool
 
 config PCI_LABEL
 	def_bool y if (DMI || ACPI)
