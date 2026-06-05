@@ -1534,6 +1534,30 @@ struct vfio_device_feature_dma_buf {
  */
 #define VFIO_DEVICE_FEATURE_MIG_PRECOPY_INFOv2  12
 
+/**
+ * Given a dma_buf fd previously exported from the same device by
+ * VFIO_DEVICE_FEATURE_DMA_BUF, a SET of this feature requests that
+ * access to the corresponding DMABUF is immediately and permanently
+ * revoked.  On successful return, the buffer is not accessible
+ * through any mmap() or dma-buf import.  The buffer is permanently
+ * disabled, and VFIO refuses all map, mmap, attach, etc. requests.
+ *
+ * Return: 0 on success, -1 and errno is set on failure:
+ *
+ *  EBADF, EINVAL: dmabuf_fd is not a DMABUF fd.
+ *  EOPNOTSUPP: The VFIO device does not support DMABUF export.
+ *  ENODEV: The DMABUF was not exported from this device.
+ *  EBADFD: The DMABUF is already permanently revoked.
+ *
+ * Additionally, common errors can occur: EFAULT accessing the struct,
+ * or EINVAL requesting an unsupported feature op.
+ */
+#define VFIO_DEVICE_FEATURE_DMA_BUF_REVOKE 13
+
+struct vfio_device_feature_dma_buf_revoke {
+	__s32	dmabuf_fd;
+};
+
 /* -------- API for Type1 VFIO IOMMU -------- */
 
 /**
