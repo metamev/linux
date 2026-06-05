@@ -1564,6 +1564,7 @@ static int hisi_acc_vfio_pci_migrn_init_dev(struct vfio_device *core_vdev)
 	struct hisi_acc_vf_core_device *hisi_acc_vdev = hisi_acc_get_vf_dev(core_vdev);
 	struct pci_dev *pdev = to_pci_dev(core_vdev->dev);
 	struct hisi_qm *pf_qm = hisi_acc_get_pf_qm(pdev);
+	int ret;
 
 	hisi_acc_vdev->vf_id = pci_iov_vf_id(pdev) + 1;
 	hisi_acc_vdev->pf_qm = pf_qm;
@@ -1575,7 +1576,18 @@ static int hisi_acc_vfio_pci_migrn_init_dev(struct vfio_device *core_vdev)
 	core_vdev->migration_flags = VFIO_MIGRATION_STOP_COPY | VFIO_MIGRATION_PRE_COPY;
 	core_vdev->mig_ops = &hisi_acc_vfio_pci_migrn_state_ops;
 
-	return vfio_pci_core_init_dev(core_vdev);
+	ret = vfio_pci_core_init_dev(core_vdev);
+	if (ret)
+		return ret;
+	/*
+	 * hisi_acc_vfio_pci_mmap() calls down to
+	 * vfio_pci_core_mmap(), so BAR mappings are still
+	 * DMABUF-backed.  They don't require a zap on revoke, so opt
+	 * out:
+	 */
+	hisi_acc_vdev->core_device.zap_bars_on_revoke = false;
+
+	return 0;
 }
 
 static const struct vfio_device_ops hisi_acc_vfio_pci_migrn_ops = {
