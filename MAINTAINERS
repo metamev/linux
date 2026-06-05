@@ -20617,7 +20617,7 @@ B:	https://bugzilla.kernel.org
 C:	irc://irc.oftc.net/linux-pci
 T:	git git://git.kernel.org/pub/scm/linux/kernel/git/pci/pci.git
 F:	Documentation/driver-api/pci/p2pdma.rst
-F:	drivers/pci/p2pdma.c
+F:	drivers/pci/p2pdma*
 F:	include/linux/pci-p2pdma.h
 
 PCI POWER CONTROL
