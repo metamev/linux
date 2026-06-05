@@ -1634,6 +1634,8 @@ int vfio_pci_core_ioctl_feature(struct vfio_device *device, u32 flags,
 		return vfio_pci_core_feature_token(vdev, flags, arg, argsz);
 	case VFIO_DEVICE_FEATURE_DMA_BUF:
 		return vfio_pci_core_feature_dma_buf(vdev, flags, arg, argsz);
+	case VFIO_DEVICE_FEATURE_DMA_BUF_REVOKE:
+		return vfio_pci_core_feature_dma_buf_revoke(vdev, flags, arg, argsz);
 	default:
 		return -ENOTTY;
 	}
@@ -1844,7 +1846,7 @@ static vm_fault_t vfio_pci_mmap_huge_fault(struct vm_fault *vmf,
 
 	dma_resv_lock(priv->dmabuf->resv, NULL);
 
-	if (priv->revoked) {
+	if (priv->status != VFIO_PCI_DMABUF_OK) {
 		pr_debug_ratelimited("%s VA 0x%lx, pgoff 0x%lx: DMABUF revoked/cleaned up\n",
 				     __func__, vmf->address, vma->vm_pgoff);
 		dma_resv_unlock(priv->dmabuf->resv);
@@ -1872,7 +1874,7 @@ static vm_fault_t vfio_pci_mmap_huge_fault(struct vm_fault *vmf,
 	down_read(&vdev->memory_lock);
 	/* Re-test revocation status under dmabuf_lock */
 	down_read(&vdev->dmabuf_lock);
-	if (!priv->revoked) {
+	if (priv->status == VFIO_PCI_DMABUF_OK) {
 		int pres = vfio_pci_dma_buf_find_pfn(vdev, priv, vma,
 						     vmf->address,
 						     order, &pfn);
