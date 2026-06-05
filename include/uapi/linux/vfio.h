@@ -1555,6 +1555,30 @@ struct vfio_device_feature_zpci_err {
 
 #define VFIO_DEVICE_FEATURE_ZPCI_ERROR 13
 
+/**
+ * Given a DMABUF fd previously exported from the same device by
+ * VFIO_DEVICE_FEATURE_DMA_BUF, a SET of this feature requests that
+ * access to the corresponding DMABUF is immediately revoked.  On
+ * successful return, the buffer is no longer accessible through any
+ * VMA or DMABUF import.  Thereafter, VFIO also refuses all future
+ * mmap()s and map/attach requests from any new/existing importer.
+ *
+ * Return: 0 on success, -1 and errno is set on failure:
+ *
+ *  EBADF, EINVAL: dmabuf_fd is not a DMABUF fd.
+ *  EOPNOTSUPP: The VFIO device does not support DMABUF export.
+ *  ENODEV: The DMABUF was not exported from this device.
+ *  EBADFD: The DMABUF is already revoked by this feature.
+ *
+ * Additionally, common errors can occur: EFAULT accessing the struct,
+ * or EINVAL requesting an unsupported feature op.
+ */
+#define VFIO_DEVICE_FEATURE_DMA_BUF_REVOKE 14
+
+struct vfio_device_feature_dma_buf_revoke {
+	__s32	dmabuf_fd;
+};
+
 /* -------- API for Type1 VFIO IOMMU -------- */
 
 /**
