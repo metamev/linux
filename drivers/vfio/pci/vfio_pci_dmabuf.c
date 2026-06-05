@@ -10,6 +10,7 @@
 
 MODULE_IMPORT_NS("DMA_BUF");
 
+#ifdef CONFIG_VFIO_PCI_DMABUF
 static int vfio_pci_dma_buf_attach(struct dma_buf *dmabuf,
 				   struct dma_buf_attachment *attachment)
 {
@@ -26,6 +27,18 @@ static int vfio_pci_dma_buf_attach(struct dma_buf *dmabuf,
 
 	return 0;
 }
+#else
+static int vfio_pci_dma_buf_attach(struct dma_buf *dmabuf,
+				   struct dma_buf_attachment *attachment)
+{
+	/*
+	 * Explicit export can't occur without the DMABUF feature, but
+	 * DMABUFs are implicitly created for BAR mappings.  An
+	 * .attach that fails prevents dma_buf_attach().
+	 */
+	return -EOPNOTSUPP;
+}
+#endif /* CONFIG_VFIO_PCI_DMABUF */
 
 static void vfio_pci_dma_buf_done(struct kref *kref)
 {
@@ -365,8 +378,13 @@ int vfio_pci_core_mmap_prep_dmabuf(struct vfio_pci_core_device *vdev,
 	priv->nr_ranges = 1;
 	priv->vma_pgoff_adjust = vma->vm_pgoff;
 
+	/*
+	 * The provider can be NULL _iff_ the DMABUF feature isn't
+	 * supported, because it's only used by DMABUF import and
+	 * attach is prohibited if the feature isn't present.
+	 */
 	priv->provider = pcim_p2pdma_provider(vdev->pdev, res_index);
-	if (!priv->provider) {
+	if (IS_ENABLED(CONFIG_VFIO_PCI_DMABUF) && !priv->provider) {
 		ret = -EINVAL;
 		goto err_free_name;
 	}
@@ -410,6 +428,7 @@ err_free_priv:
 	return ret;
 }
 
+#ifdef CONFIG_VFIO_PCI_DMABUF
 /*
  * This is a temporary "private interconnect" between VFIO DMABUF and iommufd.
  * It allows the two co-operating drivers to exchange the physical address of
@@ -608,6 +627,7 @@ err_free_ranges:
 	kfree(dma_ranges);
 	return ret;
 }
+#endif /* CONFIG_VFIO_PCI_DMABUF */
 
 void vfio_pci_dma_buf_move(struct vfio_pci_core_device *vdev, bool revoked)
 {
@@ -634,6 +654,8 @@ void vfio_pci_dma_buf_move(struct vfio_pci_core_device *vdev, bool revoked)
 			if (revoked) {
 				kref_put(&priv->kref, vfio_pci_dma_buf_done);
 				wait_for_completion(&priv->comp);
+				unmap_mapping_range(priv->dmabuf->file->f_mapping,
+						    0, 0, true);
 				/*
 				 * Re-arm the registered kref reference and the
 				 * completion so the post-revoke state matches the
