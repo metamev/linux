@@ -405,29 +405,25 @@ static __poll_t dma_buf_poll(struct file *file, poll_table *poll)
 }
 
 /**
- * dma_buf_set_name - Set a name to a specific dma_buf to track the usage.
- * It could support changing the name of the dma-buf if the same
- * piece of memory is used for multiple purpose between different devices.
+ * dma_buf_set_name_user - Set a dma_buf's name from a user string
+ *
+ * The string is up to DMA_BUF_NAME_LEN long, including the terminator.
  *
  * @dmabuf: [in]     dmabuf buffer that will be renamed.
  * @buf:    [in]     A piece of userspace memory that contains the name of
  *                   the dma-buf.
  *
- * Returns 0 on success. If the dma-buf buffer is already attached to
- * devices, return -EBUSY.
+ * Returns 0 on success.  Any previously-set name is freed.
  *
  */
-static long dma_buf_set_name(struct dma_buf *dmabuf, const char __user *buf)
+static long dma_buf_set_name_user(struct dma_buf *dmabuf, const char __user *buf)
 {
 	char *name = strndup_user(buf, DMA_BUF_NAME_LEN);
 
 	if (IS_ERR(name))
 		return PTR_ERR(name);
 
-	spin_lock(&dmabuf->name_lock);
-	kfree(dmabuf->name);
-	dmabuf->name = name;
-	spin_unlock(&dmabuf->name_lock);
+	dma_buf_set_name(dmabuf, name);
 
 	return 0;
 }
@@ -578,7 +574,7 @@ static long dma_buf_ioctl(struct file *file,
 
 	case DMA_BUF_SET_NAME_A:
 	case DMA_BUF_SET_NAME_B:
-		return dma_buf_set_name(dmabuf, (const char __user *)arg);
+		return dma_buf_set_name_user(dmabuf, (const char __user *)arg);
 
 #if IS_ENABLED(CONFIG_SYNC_FILE)
 	case DMA_BUF_IOCTL_EXPORT_SYNC_FILE:
@@ -853,6 +849,40 @@ void dma_buf_put(struct dma_buf *dmabuf)
 	fput(dmabuf->file);
 }
 EXPORT_SYMBOL_NS_GPL(dma_buf_put, "DMA_BUF");
+
+/**
+ * dma_buf_set_name - Set a dma_buf's name
+ * It could support changing the name of the dma-buf if the same piece
+ * of memory is used for multiple purpose between different devices.
+ *
+ * @dmabuf: [in]     dmabuf buffer that will be renamed.
+ * @name:   [in]     The name of the dma-buf, allocated with kmalloc() or
+ *                   similar.  This takes ownership of the allocation,
+ *                   which will be kfree()d when the dmabuf is
+ *                   released or a new name assigned.
+ *
+ * Returns 0 on success, -EINVAL if the name is NULL, or -E2BIG if the
+ * name exceeds DMA_BUF_NAME_LEN.
+ */
+int dma_buf_set_name(struct dma_buf *dmabuf, char *name)
+{
+	if (!name)
+		return -EINVAL;
+
+	/* dmabuffs_dname() won't use the string if the length
+	 * (including terminator) exceeds DMA_BUF_NAME_LEN:
+	 */
+	if (strlen(name) >= DMA_BUF_NAME_LEN)
+		return -E2BIG;
+
+	spin_lock(&dmabuf->name_lock);
+	kfree(dmabuf->name);
+	dmabuf->name = name;
+	spin_unlock(&dmabuf->name_lock);
+
+	return 0;
+}
+EXPORT_SYMBOL_NS_GPL(dma_buf_set_name, "DMA_BUF");
 
 static int dma_buf_wrap_sg_table(struct sg_table **sg_table)
 {
