@@ -342,12 +342,14 @@ struct dma_buf {
 	/**
 	 * @name:
 	 *
-	 * Userspace-provided name. Default value is NULL. If not NULL,
-	 * length cannot be longer than DMA_BUF_NAME_LEN, including NIL
-	 * char. Useful for accounting and debugging. Read/Write accesses
-	 * are protected by @name_lock
+	 * Exporter or userspace-provided name. Default value is
+	 * NULL. If not NULL, length cannot be longer than
+	 * DMA_BUF_NAME_LEN, including NIL char. Useful for accounting
+	 * and debugging. Read/Write accesses are protected by
+	 * @name_lock
 	 *
-	 * See the IOCTLs DMA_BUF_SET_NAME or DMA_BUF_SET_NAME_A/B
+	 * See dma_buf_set_name(), and the IOCTLs DMA_BUF_SET_NAME or
+	 * DMA_BUF_SET_NAME_A/B
 	 */
 	const char *name;
 
@@ -570,6 +572,8 @@ int dma_buf_fd(struct dma_buf *dmabuf, int flags);
 void dma_buf_fd_install(struct dma_buf *dmabuf, int fd);
 struct dma_buf *dma_buf_get(int fd);
 void dma_buf_put(struct dma_buf *dmabuf);
+
+int dma_buf_set_name(struct dma_buf *dmabuf, char *name);
 
 struct sg_table *dma_buf_map_attachment(struct dma_buf_attachment *,
 					enum dma_data_direction);
