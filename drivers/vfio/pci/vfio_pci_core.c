@@ -528,6 +528,8 @@ static int vfio_pci_core_runtime_resume(struct device *dev)
 	if (vdev->pm_wake_eventfd_ctx) {
 		eventfd_signal(vdev->pm_wake_eventfd_ctx);
 		__vfio_pci_runtime_pm_exit(vdev);
+		if (__vfio_pci_memory_enabled(vdev))
+			vfio_pci_dma_buf_move(vdev, false);
 	}
 	up_write(&vdev->memory_lock);
 
