@@ -193,11 +193,15 @@ static void dma_buf_release(struct dentry *dentry)
 
 static int dma_buf_file_release(struct inode *inode, struct file *file)
 {
+	struct dma_buf *dmabuf = file->private_data;
+
 	if (!is_dma_buf_file(file))
 		return -EINVAL;
 
-	__dma_buf_list_del(file->private_data);
+	__dma_buf_list_del(dmabuf);
 
+	/* Must be observed by __get_file_rcu() before file_free() */
+	smp_store_mb(dmabuf->file, NULL);
 	return 0;
 }
 
